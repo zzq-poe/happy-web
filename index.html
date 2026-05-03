@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>HAPPY</title>
+  <style>
+    :root {
+      --bg1: #fff7fb;
+      --bg2: #f4fbff;
+      --card-w: 170px;
+      --card-h: 68px;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    }
+
+    body {
+      position: relative;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .card {
+      position: fixed;
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      transition:
+        opacity 0.005s ease,
+        transform 0.005s ease;
+      pointer-events: none;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .card.show {
+      opacity: 0.96;
+      transform: translateY(0) scale(1);
+    }
+
+    .card.hide {
+      opacity: 0;
+      transform: translateY(8px) scale(0.92);
+    }
+
+    .label {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 10px;
+      text-align: center;
+      color: #222;
+      font-weight: 700;
+      border-radius: 16px;
+      line-height: 1.2;
+      user-select: none;
+    }
+
+    .toolbar {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      right: 12px;
+      z-index: 30;
+      display: flex;
+      gap: 8px;
+    }
+
+    .toolbar button,
+    #startBtn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      font-size: 14px;
+      font-weight: 700;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .toolbar button:active,
+    #startBtn:active {
+      transform: scale(0.98);
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,0.55), rgba(255,255,255,0.85));
+      transition: opacity 0.35s ease;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .panel {
+      width: min(88vw, 360px);
+      background: rgba(255, 255, 255, 0.82);
+      border-radius: 22px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+      padding: 26px 22px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .panel h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      color: #ff69b4;
+      letter-spacing: 1px;
+    }
+
+    .panel p {
+      margin: 0 0 16px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .tip {
+      position: fixed;
+      left: 50%;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 8px 14px;
+      border-radius: 999px;
+      color: #666;
+      font-size: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    @media (max-width: 560px) {
+      :root {
+        --card-w: 128px;
+        --card-h: 56px;
+        --radius: 14px;
+      }
+
+      .label {
+        font-size: 15px !important;
+      }
+
+      .panel h1 {
+        font-size: 24px;
+      }
+
+      .toolbar {
+        top: max(10px, env(safe-area-inset-top));
+        right: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div class="toolbar">
+    <button id="replayBtn">重播</button>
+    <button id="clearBtn">清屏</button>
+  </div>
+
+
+  <div id="overlay">
+    <div class="panel">
+      <button id="startBtn">开始播放</button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================
+    // 文案和颜色
+    // =========================================
+    const TEXTS = [
+      "你是最棒的", "尤诗颖是最厉害的", "大王", "喵喵喵",
+      "准时吃饭", "别太晚睡", "健健康康", "学习进步",
+      "天天开心", "大王最厉害啦", "大王", "少刷小视频",
+      "喵喵喵", "不生气", "尤诗颖最厉害啦", "你是最棒的", "通信大王"
+    ];
+
+    const COLORS = [
+      "#ff8ad8", "#9be7ff", "#98fb98", "#fff7a8",
+      "#ffc6d9", "#cdb4ff", "#ffd6a5", "#bde0fe",
+      "#caffbf", "#f1f0c0", "#a0e7e5", "#f7c8e0",
+      "#ffd1dc", "#b5ead7", "#ffdac1", "#e2f0cb"
+    ];
+
+    // =========================================
+    // 参数区（你可以调这里）
+    // =========================================
+    const CFG = {
+      HEART_COUNT: 96,              // 爱心点数，手机上建议 80~110
+      HEART_SCALE: 1.08,
+      HEART_CENTER_Y_RATIO: 0.40,
+      HEART_SHIFT_X: 0,
+      HEART_SHIFT_Y: -8,
+
+      HEART_APPEAR_DELAY: 25,       // ms
+      HEART_HOLD: 700,              // ms
+      HEART_DISAPPEAR_DELAY: 1,     // ms
+
+      SCATTER_X_OVERLAP: 54,
+      SCATTER_Y_OVERLAP: 18,
+      SCATTER_ROW_OFFSET: 34,
+
+      SCATTER_LEFT_MARGIN: 16,
+      SCATTER_RIGHT_MARGIN: 16,
+      SCATTER_TOP_MARGIN: 54,
+      SCATTER_BOTTOM_MARGIN: 36,
+
+      SCATTER_JITTER_X: 12,
+      SCATTER_JITTER_Y: 8,
+      SCATTER_APPEAR_DELAY: 50,     // ms
+      SCATTER_MAX_COUNT: 140        // 总上限，手机性能一般就别太大
+    };
+
+    const stage = document.getElementById("stage");
+    const overlay = document.getElementById("overlay");
+    const startBtn = document.getElementById("startBtn");
+    const replayBtn = document.getElementById("replayBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    const state = {
+      runId: 0,
+      playing: false
+    };
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function randChoice(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function cardSize() {
+      const mobile = window.innerWidth <= 560;
+      return {
+        w: mobile ? 128 : 170,
+        h: mobile ? 56 : 68,
+        font: mobile ? 15 : 14
+      };
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function createCard(x, y, text, color) {
+      const { w, h, font } = cardSize();
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+      card.style.width = `${w}px`;
+      card.style.height = `${h}px`;
+
+      const label = document.createElement("div");
+      label.className = "label";
+      label.style.background = color || randChoice(COLORS);
+      label.style.fontSize = `${font}px`;
+      label.textContent = text || randChoice(TEXTS);
+
+      card.appendChild(label);
+      stage.appendChild(card);
+
+      requestAnimationFrame(() => {
+        card.classList.add("show");
+      });
+
+      return card;
+    }
+
+    function removeCard(card) {
+      return new Promise(resolve => {
+        if (!card || !card.parentNode) {
+          resolve();
+          return;
+        }
+        card.classList.remove("show");
+        card.classList.add("hide");
+        setTimeout(() => {
+          if (card.parentNode) card.remove();
+          resolve();
+        }, 15);
+      });
+    }
+
+    function clearStage() {
+      stage.innerHTML = "";
+    }
+
+    function buildHeartPoints(n) {
+      const { w, h } = cardSize();
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+
+      const cx = sw / 2 + CFG.HEART_SHIFT_X;
+      const cy = sh * CFG.HEART_CENTER_Y_RATIO + CFG.HEART_SHIFT_Y;
+      const scale = Math.min(sw, sh) / 40 * CFG.HEART_SCALE;
+
+      const pts = [];
+
+      for (let i = 0; i < n; i++) {
+        const t = 2 * Math.PI * i / n;
+
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y =
+          13 * Math.cos(t)
+          - 5 * Math.cos(2 * t)
+          - 2 * Math.cos(3 * t)
+          - Math.cos(4 * t);
+
+        let sx = Math.round(cx + x * scale - w / 2);
+        let sy = Math.round(cy - y * scale - h / 2);
+
+        sx = clamp(sx, 0, sw - w);
+        sy = clamp(sy, 0, sh - h - 4);
+
+        pts.push([sx, sy]);
+      }
+
+      return pts;
+    }
+
+    function weightedShuffle(items) {
+      const pool = items.slice();
+      const result = [];
+
+      while (pool.length) {
+        let total = 0;
+        for (const item of pool) total += Math.max(0.001, item.weight);
+
+        let r = Math.random() * total;
+        let idx = 0;
+
+        for (let i = 0; i < pool.length; i++) {
+          r -= Math.max(0.001, pool[i].weight);
+          if (r <= 0) {
+            idx = i;
+            break;
+          }
+        }
+
+        result.push(pool[idx]);
+        pool.splice(idx, 1);
+      }
+
+      return result;
+    }
+
+    function buildLayeredScatterPositions() {
+      const { w, h } = cardSize();
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+
+      const left = CFG.SCATTER_LEFT_MARGIN;
+      const right = sw - w - CFG.SCATTER_RIGHT_MARGIN;
+      const top = CFG.SCATTER_TOP_MARGIN;
+      const bottom = sh - h - CFG.SCATTER_BOTTOM_MARGIN;
+
+      const stepX = Math.max(70, w - CFG.SCATTER_X_OVERLAP);
+      const stepY = Math.max(46, h - CFG.SCATTER_Y_OVERLAP);
+
+      const cols = Math.max(1, Math.floor((right - left) / stepX) + 2);
+      const rows = Math.max(1, Math.floor((bottom - top) / stepY) + 2);
+
+      const screenCx = sw / 2;
+      const screenCy = sh / 2;
+
+      const candidates = [];
+
+      for (let r = 0; r < rows; r++) {
+        const baseY = top + r * stepY + randomInt(-CFG.SCATTER_JITTER_Y, CFG.SCATTER_JITTER_Y);
+        const rowOffset = (r % 3) * CFG.SCATTER_ROW_OFFSET;
+
+        for (let c = 0; c < cols; c++) {
+          let x = left + c * stepX + rowOffset + randomInt(-CFG.SCATTER_JITTER_X, CFG.SCATTER_JITTER_X);
+          let y = baseY + randomInt(-CFG.SCATTER_JITTER_Y, CFG.SCATTER_JITTER_Y);
+
+          x = clamp(x, 0, sw - w);
+          y = clamp(y, 0, sh - h - 4);
+
+          const cx = x + w / 2;
+          const cy = y + h / 2;
+
+          const dx = (cx - screenCx) / (sw / 2);
+          const dy = (cy - screenCy) / (sh / 2);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          const centerScore = Math.max(0, 1.15 - dist);
+          let keepProb = 0.18 + 0.72 * Math.pow(centerScore, 1.8);
+          keepProb = clamp(keepProb, 0.08, 0.95);
+
+          if (Math.random() < keepProb) {
+            const weight = Math.pow(Math.max(0.02, 1.25 - dist), 2.6);
+            candidates.push({ x, y, weight });
+          }
+        }
+      }
+
+      const shuffled = weightedShuffle(candidates).slice(0, CFG.SCATTER_MAX_COUNT);
+      return shuffled.map(item => [item.x, item.y]);
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    async function play() {
+      const myRun = ++state.runId;
+      state.playing = true;
+      clearStage();
+
+      const heartCards = [];
+      const heartPositions = buildHeartPoints(CFG.HEART_COUNT);
+
+      // 第一阶段：爱心出现
+      for (const [x, y] of heartPositions) {
+        if (myRun !== state.runId) return;
+        const card = createCard(x, y, randChoice(TEXTS), randChoice(COLORS));
+        heartCards.push(card);
+        await sleep(CFG.HEART_APPEAR_DELAY);
+      }
+
+      if (myRun !== state.runId) return;
+      await sleep(CFG.HEART_HOLD);
+
+      // 第二阶段：逆序消失
+      for (let i = heartCards.length - 1; i >= 0; i--) {
+        if (myRun !== state.runId) return;
+        await removeCard(heartCards[i]);
+        await sleep(CFG.HEART_DISAPPEAR_DELAY);
+      }
+
+      if (myRun !== state.runId) return;
+
+      // 第三阶段：层次铺开
+      const positions = buildLayeredScatterPositions();
+      for (const [x, y] of positions) {
+        if (myRun !== state.runId) return;
+        createCard(x, y, randChoice(TEXTS), randChoice(COLORS));
+        await sleep(CFG.SCATTER_APPEAR_DELAY);
+      }
+
+      if (myRun === state.runId) {
+        state.playing = false;
+      }
+    }
+
+    function stopAll() {
+      state.runId++;
+      state.playing = false;
+      clearStage();
+    }
+
+    startBtn.addEventListener("click", () => {
+      overlay.classList.add("hidden");
+      play();
+    });
+
+    replayBtn.addEventListener("click", () => {
+      overlay.classList.add("hidden");
+      play();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      stopAll();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") stopAll();
+    });
+  </script>
+</body>
+</html>
